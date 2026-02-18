@@ -3,84 +3,152 @@ import { prefixStr, testsuiteName } from "./App";
 import { continueStep, nextStep, quitDebug, reverseStep, runNormal, runTestSuite, setWasmRuntime, singleStep, startStep, wasmRuntime } from "./EmulatorState";
 import { doChangeTheme } from "./Theme";
 
-export const EditorToolbar: Component<{ textGetter: () => string }> = (props) => {
+// to rebuild font.woff2, download https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0&icon_names=arrow_forward,dark_mode,folder_open,play_circle,resume,save,step_into,step_over,stop,undo
+
+export const EditorToolbar: Component<{ textGetter: () => string, setText: (s: string) => void }> = (props) => {
     return (
-        <div class="flex-none flex border-b theme-border h-9 pr-1">
-            <h1 class="select-none text-lg font-bold tracking-wide ml-2 mr-3 flex content-center" style={{
-                "text-transform": "uppercase",
-                "display": "inline-block",
-                "line-height": 1,
-            }}>ARES</h1>
+        <div class="flex flex-col">
+            <div class="flex-none flex border-b theme-border h-9 pr-1">
+                <h1 class="select-none text-lg font-bold tracking-wide ml-2 mr-3 flex content-center" style={{
+                    "text-transform": "uppercase",
+                    "display": "inline-block",
+                    "line-height": 1,
+                }}>ARES</h1>
 
-            <div class="flex-grow"></div>
+                <div class="flex-grow"></div>
 
-            <div class="flex items-center gap-0.5">
-                <Show when={wasmRuntime.status == "debug" ? wasmRuntime : null}>{debugRuntime => <>
-                    <div class="w-px h-5 theme-separator mx-1"></div>
+                <div class="flex items-center gap-0.5">
                     <ToolbarBtn
+                        class="theme-bg"
+                        icon="dark_mode"
+                        title="Change theme"
+                        onClick={doChangeTheme}
+                    />
+
+                    <div class="w-px h-5 theme-separator mx-1"></div>
+
+                    <ToolbarBtn
+                        class="theme-bg"
+                        icon="save"
+                        title="Save"
+                        onClick={() => doSave(props.textGetter())} />
+
+                    <ToolbarBtn
+                        class="theme-bg"
+                        icon="folder_open"
+                        title="Open file"
+                        onClick={() => doOpen(props.setText)} />
+
+                    <div class="w-px h-5 theme-separator mx-1"></div>
+
+                    <Show when={testsuiteName}>
+                        <ToolbarBtn
+                            class="theme-bg"
+                            icon="play_circle"
+                            title={`Run tests (${prefixStr}-R)`}
+                            onClick={() => runTestSuite(wasmRuntime, setWasmRuntime, props.textGetter())}
+                        />
+                    </Show>
+                    <Show when={!testsuiteName}>
+                        <ToolbarBtn
+                            class="theme-bg"
+                            icon="play_circle"
+                            title={`Run (${prefixStr}-R)`}
+                            onClick={() => runNormal(wasmRuntime, setWasmRuntime, props.textGetter())}
+                        />
+                        <ToolbarBtn
+                            class="theme-bg"
+                            icon="arrow_forward"
+                            title={`Debug (${prefixStr}-D)`}
+                            onClick={() => startStep(wasmRuntime, setWasmRuntime, props.textGetter())}
+                        />
+                    </Show>
+                </div>
+            </div>
+            <Show when={wasmRuntime.status == "debug" ? wasmRuntime : null}>{debugRuntime => <>
+
+                <div class="font-semibold text-sm pl-2 py-1 flex items-center gap-2 theme-bg-debugging pr-1">
+                    <span>Debugging mode, exit it to edit text</span>
+                    <div class="flex-grow"></div>
+                    <ToolbarBtn
+                        class="theme-bg-debugging"
                         icon="step_into"
                         title={`Step into (${prefixStr}-S)`}
                         onClick={() => singleStep(debugRuntime(), setWasmRuntime)}
                     />
                     <ToolbarBtn
+                        class="theme-bg-debugging"
                         icon="step_over"
                         title={`Step over/Next (${prefixStr}-N)`}
                         onClick={() => nextStep(debugRuntime(), setWasmRuntime)}
                     />
                     <ToolbarBtn
+                        class="theme-bg-debugging"
                         icon="resume"
                         title={`Continue (${prefixStr}-C)`}
                         onClick={() => continueStep(debugRuntime(), setWasmRuntime)}
                     />
                     <ToolbarBtn
+                        class="theme-bg-debugging"
                         icon="undo"
                         title={`Reverse step (${prefixStr}-Z)`}
                         onClick={() => reverseStep(debugRuntime(), setWasmRuntime)}
                     />
                     <ToolbarBtn
+                        class="theme-bg-debugging"
                         icon="stop"
                         title={`Exit debugging (${prefixStr}-X)`}
                         onClick={() => quitDebug(debugRuntime(), setWasmRuntime)}
                     />
-                </>}</Show>
-
-                <div class="w-px h-5 theme-separator mx-1"></div>
-
-                <Show when={testsuiteName}>
-                    <ToolbarBtn
-                        icon="play_circle"
-                        title={`Run tests (${prefixStr}-R)`}
-                        onClick={() => runTestSuite(wasmRuntime, setWasmRuntime, props.textGetter())}
-                    />
-                </Show>
-                <Show when={!testsuiteName}>
-                    <ToolbarBtn
-                        icon="play_circle"
-                        title={`Run (${prefixStr}-R)`}
-                        onClick={() => runNormal(wasmRuntime, setWasmRuntime, props.textGetter())}
-                    />
-                    <ToolbarBtn
-                        icon="arrow_forward"
-                        title={`Debug (${prefixStr}-D)`}
-                        onClick={() => startStep(wasmRuntime, setWasmRuntime, props.textGetter())}
-                    />
-                </Show>
-
-
-                <ToolbarBtn
-                    icon="dark_mode"
-                    title="Change theme"
-                    onClick={doChangeTheme}
-                />
-            </div>
+                </div></>}
+            </Show>
         </div>
+
     );
 };
 
-const ToolbarBtn: Component<{ icon: string; title: string; onClick: () => void }> = (props) => (
+function doSave(content: string) {
+    const blob = new Blob([content], { type: "text/plain" });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "main.s";
+
+    link.click();
+
+    URL.revokeObjectURL(link.href);
+}
+
+
+function openFile(): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".s,.S,.asm,text/plain";
+
+        input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) {
+                reject("No file selected");
+                return;
+            }
+
+            const text = await file.text();
+            resolve(text);
+        };
+
+        input.click();
+    });
+}
+
+function doOpen(setText: (s: string) => void) {
+    openFile().then(setText)
+}
+
+const ToolbarBtn: Component<{ class: string, icon: string; title: string; onClick: () => void }> = (props) => (
     <button
         on:click={props.onClick}
-        class="cursor-pointer flex items-center justify-center w-7 h-7 rounded material-symbols-outlined theme-fg theme-bg-hover theme-bg-active"
+        class={props.class + " cursor-pointer flex items-center justify-center w-7 h-7 rounded material-symbols-outlined theme-bg-hover theme-bg-active"}
         style={{ "font-size": "26px" }}
         title={props.title}
     >

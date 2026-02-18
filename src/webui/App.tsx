@@ -71,14 +71,14 @@ const App: Component = () => {
 			<PaneResize firstSize={0.5} direction="horizontal" second={true}>
 				{() =>
 					<div class="flex flex-col h-full w-full">
-						<EditorToolbar textGetter={editorInterface.getText} />
+						<EditorToolbar textGetter={editorInterface.getText} setText={editorInterface.setText} />
 						<div class="flex-grow overflow-hidden">
 							<PaneResize firstSize={0.65} direction="vertical"
 								second={wasmTestsuite().length > 0 ? true : null}>
 								{() => <PaneResize firstSize={0.85} direction="vertical"
 									second={((wasmRuntime && (wasmRuntime.status == "debug" || wasmRuntime.status == "error")) && wasmRuntime.shadowStack.length > 0) ? wasmRuntime : null}>
 									{() => <Editor origText={origText} storeText={text => localStorage.setItem(localStorageKey, text)} asmLinterOn={wasmRuntime.status != "debug" && wasmRuntime.status != "error"}
-										editorBlockedMsg={wasmRuntime.status == "debug" ? "Debugging mode, exit it to edit text." : undefined}
+										editorBlocked={wasmRuntime.status == "debug"}
 										highlightedLine={(wasmRuntime.status == "debug" || wasmRuntime.status == "error") ? getCurrentLine(wasmRuntime) : undefined}
 										editorInterfaceRef={editorInterface} setBreakpoints={setBreakpointLines}
 										diagnostics={wasmRuntime.status == "asmerr" ? { line: wasmRuntime.line, message: wasmRuntime.message } : undefined}

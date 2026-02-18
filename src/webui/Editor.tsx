@@ -22,6 +22,12 @@ export class EditorInterface {
     getText = (): string => {
         return this.view ? this.view.state.doc.toString() : "";
     }
+    setText = (s: string): void => {
+        if (!this.view) return;
+        this.view.dispatch({
+            changes: { from: 0, to: this.view.state.doc.length, insert: s },
+        });
+    }
 }
 
 // NOTE: origText/saveText is not authoritative for all text modifications (or you would negate the benefits of using a text buffer structure)
@@ -30,7 +36,7 @@ export class EditorInterface {
 type EditorProps = {
     origText: string,
     asmLinterOn: boolean,
-    editorBlockedMsg?: string,
+    editorBlocked: boolean,
     highlightedLine?: number
     diagnostics?: { line: number, message: string },
     theme: Theme,
@@ -104,7 +110,7 @@ export const Editor: Component<EditorProps> = props => {
         createEffect(() => {
             view.dispatch({
                 effects: readOnlyCompartment.reconfigure(
-                    EditorState.readOnly.of(props.editorBlockedMsg !== undefined)
+                    EditorState.readOnly.of(props.editorBlocked)
                 ),
             });
         });
@@ -138,19 +144,10 @@ export const Editor: Component<EditorProps> = props => {
         });
     });
 
-    return <div class="flex flex-col h-full">
-        <Show when={props.editorBlockedMsg}>
-            <div class="font-semibold text-sm pl-2 py-1 flex items-center gap-2 theme-bg-debugging ">
-                <span>{props.editorBlockedMsg}</span>
-            </div>
-        </Show>
+    return <main
+        class="w-full h-full overflow-hidden theme-scrollbar" style={{ contain: "strict" }}
+        ref={editor} />
 
-        <div class="flex-1 overflow-hidden">
-            <main
-                class="w-full h-full overflow-hidden theme-scrollbar" style={{ contain: "strict" }}
-                ref={editor} />
-        </div>
-    </div>
 }
 
 const dummyIndent = indentService.of((context, pos) => {
@@ -193,5 +190,3 @@ const tabKeymap = keymap.of([{
         return false;
     }
 }]);
-
-

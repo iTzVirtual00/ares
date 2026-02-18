@@ -12,7 +12,7 @@ function updateCss(colors: Colors): void {
 	background-color: ${colors.bgorange};
 }
 .theme-bg-debugging {
-	background-color: ${colors.bgorange};
+	background-color: ${colors.bgorange0};
 }
 .cm-tooltip-lint {
 	color: ${colors.base5};
@@ -23,16 +23,16 @@ function updateCss(colors: Colors): void {
 	background-color: ${colors.red};
 }
 .theme-bg-hover:hover {
-	background-color: ${colors.base1};
+	filter: brightness(90%); 
 }
 .theme-bg-active:active {
-	background-color: ${colors.base1};
+	filter: brightness(80%); 
 }
 .theme-gutter {
 	background-color: ${colors.base0};
 }
 .theme-separator {
-	background-color: ${colors.base1};
+	background-color: ${colors.base2};
 }
 .theme-fg {
 	color: ${colors.base4};
