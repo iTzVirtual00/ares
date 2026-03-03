@@ -243,7 +243,7 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
                                                 const str = formatMemoryValue(loadWrapper(props.load, ptr, bytesPerUnit), bytesPerUnit);
                                                 components.push(
                                                     <span
-                                                        class={style + " cursor-default text-right tabular-nums whitespace-pre"}
+                                                        class={style + " cursor-default tabular-nums whitespace-pre"}
                                                         style={{
                                                             "margin-right": (i != chunks - 1) ? `${cellWidth - str.length}ch` : "0",
                                                             "display": "inline-block"
