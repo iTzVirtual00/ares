@@ -94,7 +94,7 @@ RegisterExpression {
   // but that is too complicated
   Instruction { 
     (
-      "add" | "slt" | "sltu" | "and" | "or" | "xor" | "sll" | "srl" | "sub" | "sra" | "mul" | "mulh" | "mulu" | "mulhu" | "div" |
+      "add" | "slt" | "sltu" | "and" | "or" | "xor" | "sll" | "srl" | "sub" | "sra" | "mul" | "mulh" | "mulhsu" | "mulhu" | "div" |
               "divu" | "rem" | "remu" |
       "addi" | "slt" | "sltiu" | "andi" | "ori" | "xori" | "slli" | "srli" | "srai" |
       "lb" | "lh" | "lw" | "lbu" | "lhu" | "sb" | "sh" | "sw" |
