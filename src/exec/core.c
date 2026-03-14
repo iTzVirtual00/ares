@@ -71,7 +71,7 @@ InstA(MUL,   0b01100, 0b000, 0, 1)
 InstA(SLL,   0b01100, 0b001, 0, 0)
 InstA(MULH,  0b01100, 0b001, 0, 1)
 InstA(SLT,   0b01100, 0b010, 0, 0)
-InstA(MULU,  0b01100, 0b010, 0, 1)
+InstA(MULHSU,0b01100, 0b010, 0, 1)
 InstA(SLTU,  0b01100, 0b011, 0, 0)
 InstA(MULHU, 0b01100, 0b011, 0, 1)
 InstA(XOR,   0b01100, 0b100, 0, 0)
@@ -566,7 +566,7 @@ const char *handle_alu_reg(Parser *p, const char *opcode, size_t opcode_len) {
     else if (str_eq_case(opcode, opcode_len, "sra")) inst = SRA(d, s1, s2);
     else if (str_eq_case(opcode, opcode_len, "mul")) inst = MUL(d, s1, s2);
     else if (str_eq_case(opcode, opcode_len, "mulh")) inst = MULH(d, s1, s2);
-    else if (str_eq_case(opcode, opcode_len, "mulu")) inst = MULU(d, s1, s2);
+    else if (str_eq_case(opcode, opcode_len, "mulhsu")) inst = MULHSU(d, s1, s2);
     else if (str_eq_case(opcode, opcode_len, "mulhu")) inst = MULHU(d, s1, s2);
     else if (str_eq_case(opcode, opcode_len, "div")) inst = DIV(d, s1, s2);
     else if (str_eq_case(opcode, opcode_len, "divu")) inst = DIVU(d, s1, s2);
@@ -1042,7 +1042,7 @@ OpcodeHandling opcode_types[] = {
     {
         handle_alu_reg,
         {"add", "slt", "sltu", "and", "or", "xor", "sll", "srl", "sub", "sra",
-         "mul", "mulh", "mulu", "mulhu", "div", "divu", "rem", "remu"},
+         "mul", "mulh", "mulhsu", "mulhu", "div", "divu", "rem", "remu"},
     },
     {handle_alu_imm,
      {"addi", "slti", "sltiu", "andi", "ori", "xori", "slli", "srli", "srai"}},
