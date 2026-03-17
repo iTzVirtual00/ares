@@ -1,7 +1,8 @@
 import { createVirtualizer } from "@tanstack/solid-virtual";
 import { Component, createSignal, onMount, createEffect, For, Show } from "solid-js";
 import { TabSelector } from "./TabSelector";
-import { DATA_BASE, shadowStackAugmented, ShadowStackAugmentedEnt, STACK_TOP, TEXT_BASE, wasmRuntime } from "./EmulatorState";
+import { DATA_BASE, STACK_TOP, TEXT_BASE } from "./core/RiscV";
+import { ShadowStackEntry } from "./core/EmulatorState";
 import { displayFormat, formatMemoryValue, unitSize, getCellWidthChars } from "./DisplayFormat";
 
 const ROW_HEIGHT: number = 24;
@@ -15,7 +16,7 @@ function loadWrapper(load: (addr: number, pow: number) => number, ptr: number, s
     return val;
 }
 
-export const MemoryView: Component<{ version: () => any, writeAddr: number, writeLen: number, pc: number, sp: number, fp: number, load: (addr: number, pow: number) => number, disassemble: (pc: number) => string | null }> = (props) => {
+export const MemoryView: Component<{ version: () => any, writeAddr: number, writeLen: number, pc: number, sp: number, fp: number, load: (addr: number, pow: number) => number, shadowStack: any, disassemble: (pc: number) => string | null }> = (props) => {
     let parentRef: HTMLDivElement | undefined;
     let dummyChar: HTMLDivElement | undefined;
 
@@ -144,9 +145,10 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
 
                 <Show when={activeTab() == "frames"}>
                     <ShadowStack
-                        shadowStackAugmented={(wasmRuntime.status == "debug" || wasmRuntime.status == "error")
-                            ? shadowStackAugmented(wasmRuntime.shadowStack, props.load, props.writeAddr, props.writeLen) : []}
-                        version={props.version} />
+                        shadowStack={props.shadowStack}
+                        memWrittenAddr={props.writeAddr}
+                        memWrittenLen={props.writeLen}
+                    />
                 </Show>
 
                 <Show when={activeTab() == "disasm"}>
@@ -252,19 +254,22 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
     );
 };
 
-const ShadowStack: Component<{ version: () => any, shadowStackAugmented: ShadowStackAugmentedEnt[] }> = (props) =>
-    <For each={props.shadowStackAugmented}>
+const ShadowStack: Component<{ memWrittenAddr: number, memWrittenLen: number, shadowStack: ShadowStackEntry[] }> = (props) =>
+    <For each={props.shadowStack}>
         {(elem) => (
             <div class="flex flex-col pb-4">
                 <div class="font-bold">{elem.name}</div>
                 <For each={elem.elems}>
                     {(e) => (
                         <div class="flex flex-row">
-                            <a class="theme-style6 pr-2 w-[10ch] tabular-nums">{e.addr}</a>
-                            <div class={(e.isAnimated ? "animate-fade-highlight " : "") + "tabular-nums"}>{e.text}</div>
+                            <a class="theme-style6 pr-2 w-[10ch] tabular-nums">{e.addr.toString(16)}</a>
+                            <div class={((e.addr >= props.memWrittenAddr &&
+                                e.addr <
+                                props.memWrittenAddr +
+                                props.memWrittenLen) ? "animate-fade-highlight " : "") + "tabular-nums"}>{e.text}</div>
                         </div>
                     )}
                 </For>
-            </div>
+            </div >
         )}
-    </For>; 
+    </For >; 

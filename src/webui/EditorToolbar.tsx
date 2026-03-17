@@ -1,7 +1,7 @@
 import { Component, Show } from "solid-js";
 import { prefixStr, testsuiteName } from "./App";
-import { continueStep, nextStep, quitDebug, reverseStep, runNormal, runTestSuite, setWasmRuntime, singleStep, startStep, wasmRuntime } from "./EmulatorState";
 import { doChangeTheme } from "./Theme";
+import { continueExecution, nextStep, quitDebug, reverseStep, run, runTestSuite, singleStep, startDebug, state } from "./EmulatorStore";
 
 // to rebuild font.woff2, download https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0&icon_names=arrow_forward,dark_mode,folder_open,play_circle,resume,save,step_into,step_over,stop,undo
 
@@ -44,7 +44,7 @@ export const EditorToolbar: Component<{ textGetter: () => string, setText: (s: s
                             class="theme-bg"
                             icon="play_circle"
                             title={`Run tests (${prefixStr}-R)`}
-                            onClick={() => runTestSuite(wasmRuntime, setWasmRuntime, props.textGetter())}
+                            onClick={() => runTestSuite(props.textGetter())}
                         />
                     </Show>
                     <Show when={!testsuiteName}>
@@ -52,19 +52,18 @@ export const EditorToolbar: Component<{ textGetter: () => string, setText: (s: s
                             class="theme-bg"
                             icon="play_circle"
                             title={`Run (${prefixStr}-R)`}
-                            onClick={() => runNormal(wasmRuntime, setWasmRuntime, props.textGetter())}
+                            onClick={() => run(props.textGetter())}
                         />
                         <ToolbarBtn
                             class="theme-bg"
                             icon="arrow_forward"
                             title={`Debug (${prefixStr}-D)`}
-                            onClick={() => startStep(wasmRuntime, setWasmRuntime, props.textGetter())}
+                            onClick={() => startDebug(props.textGetter())}
                         />
                     </Show>
                 </div>
             </div>
-            <Show when={wasmRuntime.status == "debug" ? wasmRuntime : null}>{debugRuntime => <>
-
+            <Show when={state.status == "debug" ? state : null}>{debugRuntime => <>
                 <div class="font-semibold text-sm pl-2 py-1 flex items-center gap-2 theme-bg-debugging pr-1">
                     <span>Debugging mode, exit it to edit text</span>
                     <div class="flex-grow"></div>
@@ -72,31 +71,31 @@ export const EditorToolbar: Component<{ textGetter: () => string, setText: (s: s
                         class="theme-bg-debugging"
                         icon="step_into"
                         title={`Step into (${prefixStr}-S)`}
-                        onClick={() => singleStep(debugRuntime(), setWasmRuntime)}
+                        onClick={() => singleStep()}
                     />
                     <ToolbarBtn
                         class="theme-bg-debugging"
                         icon="step_over"
                         title={`Step over/Next (${prefixStr}-N)`}
-                        onClick={() => nextStep(debugRuntime(), setWasmRuntime)}
+                        onClick={() => nextStep()}
                     />
                     <ToolbarBtn
                         class="theme-bg-debugging"
                         icon="resume"
                         title={`Continue (${prefixStr}-C)`}
-                        onClick={() => continueStep(debugRuntime(), setWasmRuntime)}
+                        onClick={() => continueExecution()}
                     />
                     <ToolbarBtn
                         class="theme-bg-debugging"
                         icon="undo"
                         title={`Reverse step (${prefixStr}-Z)`}
-                        onClick={() => reverseStep(debugRuntime(), setWasmRuntime)}
+                        onClick={() => reverseStep()}
                     />
                     <ToolbarBtn
                         class="theme-bg-debugging"
                         icon="stop"
                         title={`Exit debugging (${prefixStr}-X)`}
-                        onClick={() => quitDebug(debugRuntime(), setWasmRuntime)}
+                        onClick={() => quitDebug()}
                     />
                 </div></>}
             </Show>

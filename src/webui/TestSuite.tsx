@@ -2,9 +2,11 @@ import { Decoration, WidgetType } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { EditorView } from "codemirror";
 import { Component } from "solid-js";
-import { setWasmRuntime, startStepTestSuite, testData, TestSuiteTableEntry, wasmRuntime } from "./EmulatorState";
 import { githubHighlightStyle } from "./GithubTheme";
 import { riscvLanguage } from "./RiscVLanguage";
+import { testData } from ".";
+import { TestCaseResult } from "./core/EmulatorState";
+import { startDebugTestCase } from "./EmulatorStore";
 
 class HeaderWidget extends WidgetType {
     constructor() {
@@ -100,7 +102,7 @@ function parseInlineCode(text: string, container: HTMLElement): void {
 }
 
 // NOTE: all characters heights are precalculated and valid since it is using monospace fonts entirely
-export const TestSuiteViewer: Component<{ table: TestSuiteTableEntry[], currentDebuggingEntry: number, textGetter: () => string }> = props => {
+export const TestSuiteViewer: Component<{ table: TestCaseResult[], currentDebuggingEntry: number, textGetter: () => string }> = props => {
     return (
         <div class="theme-scrollbar theme-bg theme-fg overflow-x-auto overflow-y-auto w-full h-full">
             <table class="table w-full max-w-full h-full min-w-full border-collapse rounded-lg ">
@@ -124,13 +126,13 @@ export const TestSuiteViewer: Component<{ table: TestSuiteTableEntry[], currentD
                                     {passed ?
                                         <div class="flex flex-col">
                                             <span class="text-sm font-semibold">success</span>
-                                            <button class="text-left text-sm hover:font-semibold " on:click={() => startStepTestSuite(wasmRuntime, setWasmRuntime, index, props.textGetter())}>
+                                            <button class="text-left text-sm hover:font-semibold " on:click={() => startDebugTestCase(props.textGetter(), index)}>
                                                 {props.currentDebuggingEntry === index ? "debugging" : "debug it"}
                                             </button>
                                         </div> :
                                         <div class="flex flex-col">
                                             <span class="text-sm font-semibold">{errorType}</span>
-                                            <button class="text-left text-sm underline hover:font-semibold " on:click={() => startStepTestSuite(wasmRuntime, setWasmRuntime, index, props.textGetter())}>
+                                            <button class="text-left text-sm underline hover:font-semibold " on:click={() => startDebugTestCase(props.textGetter(), index)}>
                                                 {props.currentDebuggingEntry === index ? "debugging" : "debug it"}
                                             </button>
                                         </div>}

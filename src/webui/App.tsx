@@ -3,16 +3,17 @@ import {
 	type Component,
 } from "solid-js";
 
-import { wasmInterface } from ".";
+import { emulator, testData } from ".";
 import { BacktraceView } from "./BacktraceView";
 import { Editor, EditorInterface } from "./Editor";
-import { consoleText, continueStep, doBuildForLinter, getCurrentLine, initialRegs, nextStep, quitDebug, reverseStep, runNormal, runTestSuite, setBreakpointLines, setWasmRuntime, singleStep, startStep, testData, TEXT_BASE, wasmRuntime, wasmTestsuite, wasmTestsuiteIdx } from "./EmulatorState";
 import { EditorToolbar } from "./EditorToolbar";
 import { MemoryView } from "./MemoryView";
 import { PaneResize } from "./PaneResize";
 import { RegisterTable } from "./RegisterTable";
-import { TestSuiteViewer } from "./TestSuite";
 import { currentTheme } from "./Theme";
+import { TEXT_BASE } from "./core/RiscV";
+import { buildForLinter, consoleText, continueExecution, nextStep, quitDebug, reverseStep, run, runTestSuite, setBreakpointLines, singleStep, startDebug, state, testSuiteIndex, testSuiteResults } from "./EmulatorStore";
+import { TestSuiteViewer } from "./TestSuite";
 
 // TODO: exporting those to access them in Theme.ts, but if i do 
 // theming with constant CSS classes i shouldn't need this anyways
@@ -29,39 +30,39 @@ const App: Component = () => {
 			// FIXME: this is deprecated but i'm not sure what is the correct successor
 			const prefix = isMac ? (event.ctrlKey && event.shiftKey) : (event.ctrlKey && event.altKey);
 
-			if (wasmRuntime.status == "debug" && prefix && event.key.toUpperCase() == 'S') {
+			if (state.status == "debug" && prefix && event.key.toUpperCase() == 'S') {
 				event.preventDefault();
-				singleStep(wasmRuntime, setWasmRuntime);
+				singleStep();
 			}
-			else if (wasmRuntime.status == "debug" && prefix && event.key.toUpperCase() == 'N') {
+			else if (state.status == "debug" && prefix && event.key.toUpperCase() == 'N') {
 				event.preventDefault();
-				nextStep(wasmRuntime, setWasmRuntime);
+				nextStep();
 			}
-			else if (wasmRuntime.status == "debug" && prefix && event.key.toUpperCase() == 'C') {
+			else if (state.status == "debug" && prefix && event.key.toUpperCase() == 'C') {
 				event.preventDefault();
-				continueStep(wasmRuntime, setWasmRuntime);
+				continueExecution();
 			}
-			else if (wasmRuntime.status == "debug" && prefix && event.key.toUpperCase() == 'Z') {
+			else if (state.status == "debug" && prefix && event.key.toUpperCase() == 'Z') {
 				event.preventDefault();
-				reverseStep(wasmRuntime, setWasmRuntime);
+				reverseStep();
 			}
-			else if (wasmRuntime.status == "debug" && prefix && event.key.toUpperCase() == 'X') {
+			else if (state.status == "debug" && prefix && event.key.toUpperCase() == 'X') {
 				event.preventDefault();
-				quitDebug(wasmRuntime, setWasmRuntime);
+				quitDebug();
 			}
 			if (testData) {
 				if (prefix && event.key.toUpperCase() == 'R') {
 					event.preventDefault();
-					runTestSuite(wasmRuntime, setWasmRuntime, editorInterface.getText());
+					runTestSuite(editorInterface.getText());
 				}
 			} else {
 				if (prefix && event.key.toUpperCase() == 'R') {
 					event.preventDefault();
-					runNormal(wasmRuntime, setWasmRuntime, editorInterface.getText());
+					run(editorInterface.getText());
 				}
 				else if (prefix && event.key.toUpperCase() == 'D') {
 					event.preventDefault();
-					startStep(wasmRuntime, setWasmRuntime, editorInterface.getText());
+					startDebug(editorInterface.getText());
 				}
 			}
 		});
@@ -74,20 +75,20 @@ const App: Component = () => {
 						<EditorToolbar textGetter={editorInterface.getText} setText={editorInterface.setText} />
 						<div class="flex-grow overflow-hidden">
 							<PaneResize firstSize={0.65} direction="vertical"
-								second={wasmTestsuite().length > 0 ? true : null}>
+								second={testSuiteResults().length ? true : null}>
 								{() => <PaneResize firstSize={0.85} direction="vertical"
-									second={((wasmRuntime && (wasmRuntime.status == "debug" || wasmRuntime.status == "error")) && wasmRuntime.shadowStack.length > 0) ? wasmRuntime : null}>
-									{() => <Editor origText={origText} storeText={text => localStorage.setItem(localStorageKey, text)} asmLinterOn={wasmRuntime.status != "debug" && wasmRuntime.status != "error"}
-										editorBlocked={wasmRuntime.status == "debug"}
-										highlightedLine={(wasmRuntime.status == "debug" || wasmRuntime.status == "error") ? getCurrentLine(wasmRuntime) : undefined}
+									second={(((state.status == "debug" || state.status == "error")) && state.shadowStack.length > 0) ? state : null}>
+									{() => <Editor origText={origText} storeText={text => localStorage.setItem(localStorageKey, text)} asmLinterOn={state.status != "debug" && state.status != "error"}
+										editorBlocked={state.status == "debug"}
+										highlightedLine={(state.status == "debug" || state.status == "error") ? state.line : undefined}
 										editorInterfaceRef={editorInterface} setBreakpoints={setBreakpointLines}
-										diagnostics={wasmRuntime.status == "asmerr" ? { line: wasmRuntime.line, message: wasmRuntime.message } : undefined}
-										doBuild={(s) => doBuildForLinter(wasmRuntime, setWasmRuntime, s)}
+										diagnostics={state.status == "asmerr" ? state.error : undefined}
+										doBuild={(s) => buildForLinter(s)}
 										theme={currentTheme()}
 									/>}
-									{wasmRuntime => BacktraceView(wasmRuntime)}
+									{r => <BacktraceView shadowStack={r.shadowStack} />}
 								</PaneResize>}
-								{() => <TestSuiteViewer table={wasmTestsuite()} currentDebuggingEntry={wasmTestsuiteIdx()} textGetter={editorInterface.getText} />}
+								{(td) => <TestSuiteViewer table={testSuiteResults()} currentDebuggingEntry={testSuiteIndex()} textGetter={editorInterface.getText} />}
 							</PaneResize>
 						</div>
 					</div>
@@ -95,21 +96,22 @@ const App: Component = () => {
 
 				{() => <PaneResize firstSize={0.75} direction="vertical" second={true}>
 					{() => <PaneResize firstSize={0.55} direction="horizontal" second={true}>
-						{() => <MemoryView version={() => wasmRuntime.version}
-							writeAddr={wasmRuntime.status == "debug" ? wasmRuntime.memWrittenAddr : 0}
-							writeLen={wasmRuntime.status == "debug" ? wasmRuntime.memWrittenLen : 0}
-							sp={wasmInterface.regsArr[2 - 1]}
-							fp={wasmInterface.regsArr[8 - 1]}
-							pc={wasmRuntime.status == "debug" ? wasmInterface.pc[0] : 0}
-							load={wasmInterface.emu_load}
-							disassemble={(pc) => wasmInterface.disassemble(pc)}
+						{() => <MemoryView version={() => state.version}
+							writeAddr={state.status == "debug" ? state.memWrittenAddr : 0}
+							writeLen={state.status == "debug" ? state.memWrittenLen : 0}
+							sp={(state.status == "debug" || state.status == "error" || state.status == "stopped") ? state.regs[2] : 0}
+							fp={(state.status == "debug" || state.status == "error" || state.status == "stopped") ? state.regs[8] : 0}
+							pc={(state.status == "debug" || state.status == "error" || state.status == "stopped") ? state.pc : 0}
+							load={(addr, size) => emulator.load(addr, size)}
+							shadowStack={(state.status == "debug" || state.status == "error") ? state.shadowStack : []}
+							disassemble={(pc) => emulator.disassemble(pc)}
 						/>}
-						{() => <RegisterTable pc={(wasmRuntime.status == "idle" || wasmRuntime.status == "asmerr" || wasmRuntime.status == "testsuite") ? TEXT_BASE : wasmRuntime.pc}
-							regs={(wasmRuntime.status == "idle" || wasmRuntime.status == "asmerr" || wasmRuntime.status == "testsuite") ? initialRegs : wasmRuntime.regs}
-							regWritten={wasmInterface ? wasmInterface.regWritten[0] : 0} />}
+						{() => <RegisterTable pc={(state.status == "debug" || state.status == "error" || state.status == "stopped") ? state.pc : TEXT_BASE}
+							regs={(state.status == "idle" || state.status == "asmerr") ? (new Array(31).fill(0)) : state.regs}
+							regWritten={state.status == "debug" ? state.regWritten : 0} />}
 					</PaneResize>}
 					{() => (<div
-						innerText={consoleText(wasmRuntime) ? consoleText(wasmRuntime) : "Console output will go here..."}
+						innerText={consoleText() ? consoleText() : "Console output will go here..."}
 						class={"w-full h-full theme-mono ml-2 mt-1 text-md overflow-auto theme-scrollbar theme-bg theme-fg"}
 					></div>)}
 				</PaneResize>}

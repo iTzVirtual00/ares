@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import { DebugState, ErrorState } from "./EmulatorState";
+import { ShadowStackEntry } from "./core/EmulatorState";
 
 function toHex(arg: number): string {
     return "0x" + arg.toString(16).padStart(8, "0");
@@ -25,8 +25,8 @@ const BacktraceCall: Component<{ name: string, args: number[], sp: number }> = (
 };
 
 
-export const BacktraceView = (state: DebugState | ErrorState) => {
+export const BacktraceView: Component<{shadowStack: ShadowStackEntry[]}> = (props) => {
     return <div class="w-full h-full theme-mono text-sm overflow-auto theme-scrollbar-slim flex flex-col">
-        {[...state.shadowStack].reverse().map(ent => <BacktraceCall name={ent.name} args={ent.args} sp={ent.sp} />)}
+        {props.shadowStack.map(ent => <BacktraceCall name={ent.name} args={ent.args} sp={ent.sp} />)}
     </div>;
 };

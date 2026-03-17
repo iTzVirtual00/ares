@@ -1,5 +1,36 @@
-import { convertNumber } from "./EmulatorState";
-import wasmUrl from "./main.wasm?url";
+export const TEXT_BASE = 0x00400000;
+export const TEXT_END = 0x10000000;
+export const DATA_BASE = 0x10000000;
+export const DATA_END = 0x70000000;
+export const STACK_TOP = 0x7ffff000;
+export const STACK_LEN = 4096;
+
+export const REG_RA = 1;
+export const REG_SP = 2;
+export const REG_FP = 8;
+
+export const SHADOW_STACK_ENT_SIZE = 96 / 4;
+export const SHADOW_STACK_PC = 0;
+export const SHADOW_STACK_SP = 1;
+export const SHADOW_STACK_ARGS = 2;
+export const SHADOW_STACK_ARG_COUNT = 8;
+
+export function toUnsigned(x: number): number {
+    return x >>> 0;
+}
+
+export function convertNumber(x: number, decimal: boolean): string {
+    if (!decimal) {
+        return toUnsigned(x).toString(16).padStart(8, "0");
+    }
+    const u = toUnsigned(x);
+    const isPointer =
+        (u >= TEXT_BASE && u <= TEXT_END) ||
+        (u >= STACK_TOP - STACK_LEN && u <= STACK_TOP) ||
+        (u >= DATA_BASE && u <= DATA_END);
+    return isPointer ? "0x" + u.toString(16).padStart(8, "0") : u.toString();
+}
+
 
 interface WasmExports {
   emulate(): void;
@@ -71,7 +102,7 @@ export class WasmInterface {
     this.gotBreakpoint = this.createU32(this.exports.g_got_breakpoint);
     this.regWritten = this.createU32(this.exports.g_reg_written);
     this.pc = this.createU32(this.exports.g_pc);
-    this.regsArr = this.createU32(this.exports.g_regs + 4);
+    this.regsArr = this.createU32(this.exports.g_regs);
     this.runtimeErrorParams = this.createU32(
       this.exports.g_runtime_error_params,
     );
@@ -91,10 +122,8 @@ export class WasmInterface {
   }
 
 
-  public static async loadModule(): Promise<WasmInterface> {
+  public static async loadModule(buffer: any): Promise<WasmInterface> {
     const memory = new WebAssembly.Memory({ initial: 7 });
-    const res = await fetch(wasmUrl);
-    const buffer = await res.arrayBuffer();
     let iface: WasmInterface | null;
     const { instance } = await WebAssembly.instantiate(buffer, {
       env: {

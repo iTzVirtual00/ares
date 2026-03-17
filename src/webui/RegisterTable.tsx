@@ -85,7 +85,7 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
           {/* using Index here would optimize it, but it gets messy with animations
             naively keeping it as is and making regWritten a signal would still cause everything to be recomputed
         */}
-          {props.regs.map((reg, idx) => (
+          {props.regs.slice(1).map((reg, idx) => (
             <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch]">
               <div class="self-center pl-[1ch] font-bold">
                 {regnames[idx]}/x{idx + 1}
