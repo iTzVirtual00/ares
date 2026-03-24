@@ -54,7 +54,7 @@
             '';
             installPhase = ''
               mkdir -p $out
-              cp --verbose ares $out/
+              cp --verbose bin/ares $out/
             '';
           };
 
@@ -64,11 +64,11 @@
             name = "ares-cli";
             phases = ["unpackPhase" "buildPhase" "installPhase"];
             buildPhase = ''
-              make ares_test
+              make bin/ares_test
             '';
             installPhase = ''
               mkdir -p $out
-              cp --verbose ares_test $out/
+              cp --verbose bin/ares_test $out/
             '';
           };
         };
