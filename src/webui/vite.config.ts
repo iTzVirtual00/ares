@@ -1,6 +1,6 @@
 import { defineConfig, Plugin } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
-import clangPlugin from "./src/webui/vite-plugin-clang.js";
+import clangPlugin from "./vite-plugin-clang.js";
 import { lezer } from "@lezer/generator/rollup";
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
@@ -34,6 +34,7 @@ function wasmPrefetchPlugin(): Plugin {
 }
 
 export default defineConfig({
+  root: 'src/webui',
   plugins: [wasmPrefetchPlugin(), solidPlugin(), clangPlugin(), lezer()],
   server: {
     port: 3000,
@@ -49,9 +50,9 @@ export default defineConfig({
       ]
     }
   },
-
   build: {
+    outDir: '../../dist',
+    emptyOutDir: true, // also necessary
     target: 'firefox89',
-    outDir: "dist",
   },
 });

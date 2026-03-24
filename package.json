@@ -4,10 +4,10 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "vite",
-    "dev": "vite",
-    "build": "vite build",
-    "serve": "vite preview"
+    "start": "vite --config src/webui/vite.config.js",
+    "dev": "vite --config src/webui/vite.config.js",
+    "build": "vite build --config src/webui/vite.config.js",
+    "serve": "vite preview --config src/webui/vite.config.js"
   },
   "license": "MIT",
   "devDependencies": {
