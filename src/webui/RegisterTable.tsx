@@ -44,7 +44,7 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
     <div class="overflow-hidden flex-grow h-full self-start flex-shrink flex flex-col">
       <div class="flex-none flex items-center justify-end theme-gutter border-b theme-border min-h-9">
         <div class="flex flex-wrap items-center gap-1">
-          <div class="relative inline-block">
+          <div class="pb-0.5 relative inline-block">
             <select
               class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
               title="Memory unit size"
@@ -58,7 +58,7 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
             <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
               xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
           </div>
-          <div class="relative inline-block">
+          <div class="pb-0.5 relative inline-block">
             <select
               class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
               title="Number format"
@@ -75,7 +75,6 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
         </div>
       </div>
 
-      {/* Register grid */}
       <div class="overflow-auto flex-grow text-md theme-mono theme-scrollbar-slim theme-border">
         <div class="ml-[-1px] grid-cols-[repeat(auto-fit,minmax(20ch,1fr))] grid">
           <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] ">
