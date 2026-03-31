@@ -1521,29 +1521,37 @@ bool pc_to_label_r(u32 pc, LabelData **ret, u32 *off) {
 
 export u32 g_get_addr_from_line_start;
 export u32 g_get_addr_from_line_end;
+
 void get_addr_from_line(u32 line) {
     Section *startsec = NULL;
     size_t j = 0;
+    
+    // find the section containing the line
     for (size_t i = 0; i < ARES_ARRAY_LEN(&g_sections); i++) {
         startsec = g_sections.buf[i];
         for (j = 0; j < ARES_ARRAY_LEN(&startsec->by_linenum); j++) {
             if (startsec->by_linenum.buf[j] == line) {
                 g_get_addr_from_line_start = startsec->base + j;
-                goto done1;
+                goto found_line;
             }
         }
     }
+    
+    // line not found in any section
     g_get_addr_from_line_start = 0;
     g_get_addr_from_line_end = 0;
     return;
-done1:;
+
+found_line:
+    // is there an instruction after this?
     for (; j < ARES_ARRAY_LEN(&startsec->by_linenum); j++) {
         if (startsec->by_linenum.buf[j] > line) {
-            g_get_addr_from_line_end = (startsec->base + j);
+            g_get_addr_from_line_end = startsec->base + j;
             return;
         }
     }
-    g_get_addr_from_line_end = (startsec->base + startsec->contents.len);
+    // if instead it was the last line, the end is the section end
+    g_get_addr_from_line_end = startsec->base + startsec->contents.len;
 }
 
 u32 get_line_from_pc() {

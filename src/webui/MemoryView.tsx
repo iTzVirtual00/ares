@@ -206,6 +206,12 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
                                         let components = [];
                                         let selectMode = (addrSelect() == -1) ? "select-text" : "select-none";
 
+                                        let writeStartAligned = props.writeAddr & (~(bytesPerUnit - 1));
+                                        let writeEndAligned = (props.writeAddr + props.writeLen + bytesPerUnit - 1) & (~(bytesPerUnit - 1));
+
+                                        let highlightStartAligned = props.highlightAddr & (~(bytesPerUnit - 1));
+                                        let highlightEndAligned = (props.highlightAddr + props.highlightLen + bytesPerUnit - 1) & (~(bytesPerUnit - 1));
+
                                         for (let i = 0; i < chunks; i++) {
                                             const basePtr = getStartAddr() + (virtRow.index * chunks + i) * 4;
                                             const unitsPerChunk = 4 / bytesPerUnit;
@@ -213,10 +219,9 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
                                             for (let j = 0; j < unitsPerChunk; j++) {
                                                 let ptr = basePtr + (j * bytesPerUnit);
                                                 if (ptr - getStartAddr() >= 65536) break;
-                                                let isAnimated = ptr >= props.writeAddr && ptr < props.writeAddr + props.writeLen;
+                                                let isAnimated = ptr >= writeStartAligned && ptr < writeEndAligned;
                                                 // only handle FP here if it is set (it's 0 by default)
                                                 let isGray = activeTab() == "stack" && (ptr < props.sp || (props.fp > props.sp && ptr > props.fp));
-                                                // TODO: should we do +4 or +display_size?
                                                 let isSp = ptr >= props.sp && ptr < props.sp + 4;
                                                 let isFp = ptr >= props.fp && ptr < props.fp + 4;
                                                 let style = selectMode;
@@ -224,7 +229,7 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
                                                 else if (isGray) style = "theme-fg2";
                                                 else if (isSp) style = "sp-highlight";
                                                 else if (isFp) style = "fp-highlight";
-                                                if (ptr >= props.highlightAddr && ptr < props.highlightAddr + props.highlightLen)
+                                                if (ptr >= highlightStartAligned && ptr < highlightEndAligned)
                                                     style += " font-bold";
 
                                                 // Use max width for consistent layout
