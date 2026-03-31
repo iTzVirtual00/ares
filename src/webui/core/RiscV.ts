@@ -285,17 +285,17 @@ export class WasmInterface {
         case 6:
           regname = this.getRegisterName(runtimeParam1);
           oldVal = convertNumber(runtimeParam2, false);
-          newVal = convertNumber(this.regsArr[runtimeParam1 - 1], false);
+          newVal = convertNumber(this.regsArr[runtimeParam1], false);
           this.textBuffer += `CallSan: ${pcString}\nCallee-saved register ${regname} has different value at the beginning and end of the function.\nPrev: ${oldVal}\nCurr: ${newVal}\nCheck the calling convention!\n`;
           break;
         case 7:
           oldVal = convertNumber(runtimeParam2, false);
-          newVal = convertNumber(this.regsArr[2 - 1], false);
+          newVal = convertNumber(this.regsArr[REG_SP], false);
           this.textBuffer += `CallSan: ${pcString}\nRegister sp has different value at the beginning and end of the function.\nPrev: ${oldVal}\nCurr: ${newVal}\nCheck the calling convention!\n`;
           break;
         case 8:
           oldVal = convertNumber(runtimeParam2, false);
-          newVal = convertNumber(this.regsArr[1 - 1], false);
+          newVal = convertNumber(this.regsArr[REG_RA], false);
           this.textBuffer += `CallSan: ${pcString}\nRegister ra has different value at the beginning and end of the function.\nPrev: ${oldVal}\nCurr: ${newVal}\nCheck the calling convention!\n`;
           break;
         case 9:

@@ -107,7 +107,7 @@ const App: Component = () => {
 							disassemble={(pc) => emulator.disassemble(pc)}
 						/>}
 						{() => <RegisterTable pc={(state.status == "debug" || state.status == "error" || state.status == "stopped") ? state.pc : TEXT_BASE}
-							regs={(state.status == "idle" || state.status == "asmerr") ? (new Array(31).fill(0)) : state.regs}
+							regs={(state.status == "idle" || state.status == "asmerr") ? (new Array(32).fill(0)) : state.regs}
 							regWritten={state.status == "debug" ? state.regWritten : 0} />}
 					</PaneResize>}
 					{() => (<div
