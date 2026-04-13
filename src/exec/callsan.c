@@ -4,6 +4,7 @@
 #include "ares/emulate.h"
 
 export u32 g_reg_bitmap;
+export u32 g_reg_bitmap_ever_written;
 ARES_ARRAY(ShadowStackEnt) g_shadow_stack = ARES_ARRAY_NEW(ShadowStackEnt);
 export u8 g_callsan_stack_written_by[STACK_LEN / 4];
 
@@ -17,19 +18,28 @@ void callsan_init(void) {
                    (1u << REG_S8) | (1u << REG_S9) | (1u << REG_S10) |
                    (1u << REG_S11);
     g_shadow_stack = ARES_ARRAY_NEW(ShadowStackEnt);
+    g_reg_bitmap_ever_written = 0;
 }
 
 bool callsan_can_load(int reg) {
     if (reg == 0) return true;
     if (((g_reg_bitmap >> reg) & 1) == 0) {
-        g_runtime_error_type = ERROR_CALLSAN_CANTREAD;
+        // there are still two causes:
+        // it could be caused by accessing an uninitialized register (*never*
+        // written) or by a register clobbered by the call
         g_runtime_error_params[0] = reg;
+        if (((g_reg_bitmap_ever_written >> reg) & 1) == 0)
+            g_runtime_error_type = ERROR_CALLSAN_CANTREAD;
+        else g_runtime_error_type = ERROR_CALLSAN_CALL_CLOBBERED;
         return false;
     }
     return true;
 }
 
-void callsan_store(int reg) { g_reg_bitmap |= 1u << reg; }
+void callsan_store(int reg) {
+    g_reg_bitmap |= 1u << reg;
+    g_reg_bitmap_ever_written |= 1u << reg;
+}
 
 const u32 CALLSAN_CALL_ACCESSIBLE =
     (1ul << REG_ZERO) | (1ul << REG_SP) | (1ul << REG_RA) | (1ul << REG_TP) |
