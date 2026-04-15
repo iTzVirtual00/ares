@@ -1,5 +1,8 @@
-import { Component } from "solid-js";
-import { displayFormat, DisplayFormat, formatRegister, setDisplayFormat, setUnitSize, unitSize, UnitSize } from "./DisplayFormat";
+import { Component, createSignal } from "solid-js";
+import { DisplayFormat, formatRegister, UnitSize } from "./DisplayFormat";
+
+export const [displayFormat, setDisplayFormat] = createSignal<DisplayFormat>("hex");
+export const [unitSize, setUnitSize] = createSignal<UnitSize>(4);
 
 export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: number }> = (props) => {
   // idx is the hardware register number
@@ -53,14 +56,28 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
         <div class="flex flex-wrap items-center gap-1">
           <div class="pb-0.5 relative inline-block">
             <select
-                class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
-                title="Memory unit size"
-                value={unitSize()}
-                onChange={(e) => setUnitSize(e.currentTarget.value as UnitSize)}
-              >
-                <option value="byte">byte</option>
-                <option value="half">half</option>
-                <option value="word">word</option>
+              class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
+              title="Memory unit size"
+              value={unitSize()}
+              onChange={(e) => setUnitSize(Number(e.currentTarget.value) as UnitSize)}
+            >
+              <option value={1}>byte</option>
+              <option value={2}>half</option>
+              <option value={4}>word</option>
+            </select>
+            <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
+              xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
+          </div>
+          <div class="pb-0.5 relative inline-block">
+            <select
+              class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
+              title="Number format"
+              value={displayFormat()}
+              onChange={(e) => setDisplayFormat(e.currentTarget.value as DisplayFormat)}
+            >
+              <option value="hex">hex</option>
+              <option value="unsigned">unsigned</option>
+              <option value="signed">signed</option>
             </select>
             <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
               xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
@@ -87,26 +104,18 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
         <div class="ml-[-1px] columns-[21ch]">
           <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] break-inside-avoid">
             <div class="self-center pl-[1ch] font-bold">pc</div>
-            <div class="self-center pr-[1ch]">{formatRegister(props.pc)}</div>
+            <div class="self-center pr-[1ch]">{formatRegister(props.pc, "hex")}</div>
           </div>
           {/* using Index here would optimize it, but it gets messy with animations
             naively keeping it as is and making regWritten a signal would still cause everything to be recomputed
-          */}
-          {registersLayout.map((regDef) => {
-            const val = props.regs[regDef.idx]; 
-            const hwName = `x${regDef.idx}`;
-
-            return (
-              <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] gap-3 break-inside-avoid">
-                <div class={`self-center pl-[1ch] font-bold ${regDef.color}`}>
-                  {regDef.name}/{hwName}
-                </div>
-                <div class={"self-center mr-[1ch] " + (regDef.idx == props.regWritten ? "animate-fade-highlight" : "")}>
-                  {(() => {
-                    displayFormat();
-                    return formatRegister(val);
-                  })()}
-                </div>
+        */}
+          {props.regs.slice(1).map((reg, idx) => (
+            <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch]">
+              <div class="self-center pl-[1ch] font-bold">
+                {regnames[idx]}/x{idx + 1}
+              </div>
+              <div class={"self-center mr-[1ch] " + (idx + 1 == props.regWritten ? "animate-fade-highlight" : "")}>
+                {formatRegister(reg, displayFormat())}
               </div>
             );
           })}

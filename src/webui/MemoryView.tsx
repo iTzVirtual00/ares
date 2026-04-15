@@ -1,149 +1,305 @@
 import { createVirtualizer } from "@tanstack/solid-virtual";
-import { Component, createSignal, onMount, createEffect, For, Show } from "solid-js";
+import { Component, createSignal, onMount, createEffect, For, Show, on, Index, createMemo, onCleanup } from "solid-js";
 import { TabSelector } from "./TabSelector";
 import { DATA_BASE, STACK_TOP, TEXT_BASE } from "./core/RiscV";
-import { ShadowStackEntry } from "./core/EmulatorState";
-import { displayFormat, formatMemoryValue, unitSize, getCellWidthChars } from "./DisplayFormat";
+import { formatMemoryValue, getCellWidthChars } from "./DisplayFormat";
+import { unitSize, displayFormat } from "./RegisterTable";
+import { ShadowStack } from "./ShadowStack";
 
-const ROW_HEIGHT: number = 24;
+const MEMORY_WINDOW_SIZE = 65536;
 
-// this wrapper is needed because the .data section size may be unaligned
 function loadWrapper(load: (addr: number, pow: number) => number, ptr: number, size: number) {
     let val = 0;
     for (let i = 0; i < size; i++) {
         val |= load(ptr + i, 1) << (i * 8);
     }
-    return val;
+    return val >>> 0;
 }
 
-export const MemoryView: Component<{ version: () => any, writeAddr: number, writeLen: number, highlightAddr: number, highlightLen: number, pc: number, sp: number, fp: number, load: (addr: number, pow: number) => number, shadowStack: any, disassemble: (pc: number) => string | null }> = (props) => {
-    let parentRef: HTMLDivElement | undefined;
+const AddressGutter: Component<{
+    index: number,
+    addr: number,
+    charWidth: number,
+    addrSelect: number,
+    setAddrSelect: (s: number) => void,
+    highlighted?: boolean,
+}> = (props) => (
+    <div
+        class={"theme-style6 shrink-0 w-[10ch] tabular-nums " +
+            (props.addrSelect === props.index ? "select-text " : "select-none ") +
+            (props.highlighted ? "theme-fg" : "theme-fg2")}
+        onMouseDown={(e) => { props.setAddrSelect(props.index); e.stopPropagation(); }}
+    >
+        {props.addr.toString(16).padStart(8, "0")}
+    </div>
+);
+
+const DisasmView: Component<{
+    version: () => any,
+    pc: number,
+    highlightAddr: number,
+    highlightLen: number,
+    charWidth: number,
+    charHeight: number,
+    addrSelect: () => number,
+    setAddrSelect: (i: number) => void,
+    disassemble: (pc: number) => string | null,
+    parentRef: HTMLDivElement | undefined,
+}> = (props) => {
+    const virtualizer = createVirtualizer({
+        get count() { return MEMORY_WINDOW_SIZE / 4; },
+        getScrollElement: () => props.parentRef ?? null,
+        estimateSize: () => props.charHeight,
+        overscan: 5,
+    });
+
+    createEffect(() => {
+        if (props.pc > 0) {
+            const idx = (props.pc - TEXT_BASE) / 4;
+            if (idx >= 0 && idx < MEMORY_WINDOW_SIZE / 4) {
+                virtualizer.scrollToIndex(idx, { align: "center" });
+            }
+        }
+    });
+
+    return (
+        <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
+            <For each={virtualizer.getVirtualItems()}>
+                {(virtRow) => {
+                    const addr = TEXT_BASE + virtRow.index * 4;
+                    return (
+                        <div
+                            style={{ "white-space": "nowrap", position: "absolute", top: `${virtRow.start}px`, height: `${virtRow.size}px` }}
+                            class={"flex flex-row items-center w-full " + (addr === props.pc ? "cm-debugging" : "")}
+                        >
+                            <AddressGutter
+                                index={virtRow.index}
+                                addr={addr}
+                                charWidth={props.charWidth}
+                                addrSelect={props.addrSelect()}
+                                setAddrSelect={props.setAddrSelect}
+                                highlighted={addr === props.pc}
+                            />
+                            {(() => {
+                                // trigger reactivity when the code changes
+                                props.version();
+                                const inst = props.disassemble(addr);
+                                const isBold = addr >= props.highlightAddr && addr < (props.highlightAddr + props.highlightLen);
+                                return <div class={isBold ? "font-bold" : ""}>{inst}</div>;
+                            })()}
+                        </div>
+                    );
+                }}
+            </For>
+        </div>
+    );
+};
+
+const HexView: Component<{
+    version: () => any,
+    activeTab: () => ".text" | ".data" | "stack" | "frames" | "disasm",
+    writeAddr: number,
+    writeLen: number,
+    highlightAddr: number,
+    highlightLen: number,
+    sp: number,
+    fp: number,
+    load: (addr: number, pow: number) => number,
+    charWidth: number,
+    charHeight: number,
+    addrSelect: () => number,
+    setAddrSelect: (i: number) => void,
+    chunksPerLine: () => number,
+    lineCount: () => number,
+    parentRef: HTMLDivElement | undefined,
+    // not reactive, used to store data across mounts
+    scrollPositions: Record<string, number>
+}> = (props) => {
+    const virtualizer = createVirtualizer({
+        get count() { return props.lineCount(); },
+        getScrollElement: () => props.parentRef ?? null,
+        estimateSize: () => props.charHeight,
+        overscan: 5,
+    });
+
+    const bytesPerLine = createMemo(() => unitSize() * props.chunksPerLine());
+    const getStartAddr = () => {
+        const tab = props.activeTab();
+        if (tab === ".text") return TEXT_BASE;
+        if (tab === ".data") return DATA_BASE;
+        if (tab === "stack") return STACK_TOP - MEMORY_WINDOW_SIZE;
+        return 0;
+    };
+
+    createEffect(on(props.activeTab, (next, prev) => {
+        if (!props.parentRef) return;
+        const bpl = bytesPerLine();
+        if (prev) {
+            props.scrollPositions[prev] = Math.round(props.parentRef.scrollTop / props.charHeight) * bpl;
+        }
+        const saved = props.scrollPositions[next];
+        props.parentRef.scrollTop = Math.round(saved / bpl) * props.charHeight;
+    }));
+
+    createEffect(on(bytesPerLine, (next, prev) => {
+        if (!props.parentRef) return;
+        if (!prev) return;
+        if (props.activeTab() === "stack") {
+            // TODO: figure out the math to make this keep working while pinning the end of the stack
+            // for now, resetting to the end is good enough
+            props.parentRef.scrollTop = props.parentRef.scrollHeight - props.parentRef.clientHeight;
+        } else {
+            let addr = Math.round(props.parentRef.scrollTop / props.charHeight) * prev;
+            props.parentRef.scrollTop = Math.round(addr / next) * props.charHeight;
+        }
+    }));
+
+    const getStyle = (ptr: number) => {
+        const isStack = props.activeTab() === "stack";
+        const bytesPerUnit = unitSize();
+        const selectMode = props.addrSelect() === -1 ? "select-text" : "select-none";
+        const writeStartAligned = props.writeAddr & ~(bytesPerUnit - 1);
+        const writeEndAligned = (props.writeAddr + props.writeLen + bytesPerUnit - 1) & ~(bytesPerUnit - 1);
+        const highlightStartAligned = props.highlightAddr & ~(bytesPerUnit - 1);
+        const highlightEndAligned = (props.highlightAddr + props.highlightLen + bytesPerUnit - 1) & ~(bytesPerUnit - 1);
+        const isAnimated = ptr >= writeStartAligned && ptr < writeEndAligned;
+        const isGray = isStack && (ptr < props.sp || (props.fp > props.sp && ptr > props.fp));
+        const isSp = isStack && ptr >= props.sp && ptr < props.sp + 4;
+        // need this specific check for isStack since fp is s0, and it can be used as a regular register
+        const isFp = isStack && ptr >= props.fp && ptr < props.fp + 4;
+        let style = selectMode;
+        if (isGray) style = "theme-fg2";
+        else if (isSp) style = "sp-highlight";
+        else if (isFp) style = "fp-highlight";
+        if (ptr >= highlightStartAligned && ptr < highlightEndAligned)
+            style += " font-bold";
+        if (isAnimated) style += " animate-fade-highlight";
+
+        return style;
+    }
+
+    return (
+        <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
+            <For each={virtualizer.getVirtualItems()}>
+                {(virtRow) => (
+                    <div
+                        style={{ position: "absolute", top: `${virtRow.start}px` }}
+                        class="flex flex-row items-center w-full"
+                        data-index={virtRow.index}
+                    >
+                        <AddressGutter
+                            index={virtRow.index}
+                            addr={getStartAddr() + virtRow.index * props.chunksPerLine() * 4}
+                            charWidth={props.charWidth}
+                            addrSelect={props.addrSelect()}
+                            setAddrSelect={props.setAddrSelect}
+                        />
+                        <Index each={Array.from({ length: props.chunksPerLine() }, (_, i) => {
+                            const bytesPerUnit = unitSize();
+                            const startAddr = getStartAddr();
+                            return Array.from({ length: 4 / bytesPerUnit }, (_, j) => {
+                                const ptr = startAddr + (virtRow.index * props.chunksPerLine() + i) * 4 + j * bytesPerUnit;
+                                return { ptr, bytesPerUnit, isLast: i === props.chunksPerLine() - 1 && j === 4 / bytesPerUnit - 1 };
+                            });
+                        }).flat()}>
+                            {(cell) => {
+                                const cellWidth = () => getCellWidthChars(cell().bytesPerUnit);
+                                const str = () => {
+                                    // trigger reactivity when the data changes
+                                    props.version();
+                                    let val = loadWrapper(props.load, cell().ptr, cell().bytesPerUnit);
+                                    return cell().ptr >= getStartAddr() + MEMORY_WINDOW_SIZE ? "" : formatMemoryValue(val, cell().bytesPerUnit, displayFormat());
+                                };
+                                return (
+                                    <span
+                                        class={getStyle(cell().ptr) + " cursor-default tabular-nums whitespace-pre"}
+                                        style={{
+                                            "margin-right": `${cellWidth() + 1 - str().length}ch`,
+                                            "display": "inline-block"
+                                        }}
+                                    >
+                                        {str()}
+                                    </span>
+                                );
+                            }}
+                        </Index>
+                    </div>
+                )}
+            </For>
+        </div>
+    );
+};
+
+export const MemoryView: Component<{
+    version: () => any,
+    writeAddr: number,
+    writeLen: number,
+    highlightAddr: number,
+    highlightLen: number,
+    pc: number,
+    sp: number,
+    fp: number,
+    load: (addr: number, pow: number) => number,
+    shadowStack: any,
+    disassemble: (pc: number) => string | null
+}> = (props) => {
+    let pr: HTMLDivElement | undefined = undefined;
+    const [parentRef, setParentRef] = createSignal<HTMLDivElement | undefined>(undefined);
+    let scrollPositions: Record<string, number> = { ".text": 0, ".data": 0, "stack": MEMORY_WINDOW_SIZE };
     let dummyChar: HTMLDivElement | undefined;
 
-    // same version hack, but for tab switch
-    const [reloadTrigger, setReloadTrigger] = createSignal(0);
     const [containerWidth, setContainerWidth] = createSignal<number>(0);
     const [charWidth, setCharWidth] = createSignal<number>(0);
+    const [charHeight, setCharHeight] = createSignal<number>(0);
     const [chunksPerLine, setChunksPerLine] = createSignal<number>(1);
     const [lineCount, setLineCount] = createSignal<number>(0);
     const [addrSelect, setAddrSelect] = createSignal<number>(-1);
-
-    const getUnitBytes = () => unitSize() === "byte" ? 1 : unitSize() === "half" ? 2 : 4;
+    const [activeTab, setActiveTab] = createSignal<".text" | ".data" | "frames" | "stack" | "disasm">(".text");
 
     onMount(() => {
         if (dummyChar) setCharWidth(dummyChar.getBoundingClientRect().width);
+        if (dummyChar) setCharHeight(dummyChar.getBoundingClientRect().height);
         const ro = new ResizeObserver((entries) => {
             for (const entry of entries) setContainerWidth(entry.contentRect.width);
         });
-        if (parentRef) ro.observe(parentRef);
-        return () => ro.disconnect();
+        if (pr) ro.observe(pr);
+        setParentRef(pr)
+        onCleanup(() => ro.disconnect());
     });
 
     createEffect(() => {
         const cw = charWidth();
         const containerW = containerWidth();
-        const unit = getUnitBytes();
+        const unit = unitSize();
 
-        if (cw > 0 && containerW > 0) {
-            if (activeTab() != "disasm") {
-                const addressGutterChars = 12;
-                const availablePx = containerW - (addressGutterChars * cw);
-
-                // Get the MAXIMUM width needed (format-independent)
-                const unitWidthChars = getCellWidthChars(unit);
-                const valuesPerChunk = 4 / unit;
-
-                // Calculate chunk width: (units * their width) + (gaps between units)
-                const chunkWidthChars = (valuesPerChunk * unitWidthChars) + valuesPerChunk;
-                const chunkWidthPx = chunkWidthChars * cw;
-
-                const count = Math.max(1, Math.floor(availablePx / chunkWidthPx));
-
-                setChunksPerLine(count + 1); // +1 because loop uses (chunksPerLine - 1)
-                setLineCount(Math.ceil(65536 / (count * 4)));
-            }
+        if (cw > 0 && containerW > 0 && activeTab() !== "disasm") {
+            const addressGutterChars = 12; // strlen("00400000  ")
+            const availablePx = containerW - addressGutterChars * cw;
+            const unitWidthChars = getCellWidthChars(unit);
+            const valuesPerChunk = 4 / unit;
+            const chunkWidthChars = valuesPerChunk * unitWidthChars + valuesPerChunk;
+            const chunkWidthPx = chunkWidthChars * cw;
+            const count = Math.max(1, Math.floor(availablePx / chunkWidthPx));
+            setChunksPerLine(count);
+            setLineCount(Math.ceil(MEMORY_WINDOW_SIZE / (count * 4)));
         }
     });
 
-    const rowVirtualizer = createVirtualizer({
-        get count() { return lineCount(); },
-        getScrollElement: () => parentRef ?? null,
-        estimateSize: () => ROW_HEIGHT,
-        overscan: 5,
-    });
-
-
-    const rowVirtualizer2 = createVirtualizer({
-        get count() { return 65536 / 4 },
-        getScrollElement: () => parentRef ?? null,
-        estimateSize: () => ROW_HEIGHT,
-        overscan: 5,
-    });
-
-    const [activeTab, setActiveTab] = createSignal(".text");
-
-    // auto-scroll to bottom when switching to stack tab
-    createEffect(() => {
-        if (parentRef) {
-            if (activeTab() == "stack") {
-                const lastIndex = lineCount() - 1;
-                rowVirtualizer.scrollToIndex(lastIndex);
-            } else if (activeTab() != "disasm") {
-                rowVirtualizer.scrollToIndex(0);
-            } else if (activeTab() == "disasm") {
-                // scroll to current PC if debugging, otherwise top
-                if (props.pc > 0) {
-                    const idx = (props.pc - TEXT_BASE) / 4;
-                    if (idx >= 0 && idx < 65536 / 4) {
-                        rowVirtualizer2.scrollToIndex(idx, { align: "center" });
-                    } else {
-                        rowVirtualizer2.scrollToIndex(0);
-                    }
-                } else {
-                    rowVirtualizer2.scrollToIndex(0);
-                }
-            }
-        }
-    });
-
-    // auto-scroll disasm view to the current PC when stepping
-    createEffect(() => {
-        props.version(); // track version changes (steps)
-        if (activeTab() == "disasm" && props.pc > 0) {
-            const idx = (props.pc - TEXT_BASE) / 4;
-            if (idx >= 0 && idx < 65536 / 4) {
-                rowVirtualizer2.scrollToIndex(idx, { align: "center" });
-            }
-        }
-    });
-
-    // force a view reload on tab switches
-    createEffect(() => {
-        activeTab();
-        setReloadTrigger(prev => prev + 1);
-    });
-
-    const getStartAddr = () => {
-        if (activeTab() == ".text" || activeTab() == "disasm") return TEXT_BASE;
-        if (activeTab() == ".data") return DATA_BASE;
-        if (activeTab() == "stack") return STACK_TOP - 65536;
-        return 0;
-    };
+    const showHex = () => activeTab() !== "frames" && activeTab() !== "disasm";
 
     return (
         <div class="h-full flex flex-col overflow-hidden" onMouseDown={() => setAddrSelect(-1)}>
             <TabSelector tab={activeTab()} setTab={setActiveTab} tabs={[".text", "disasm", ".data", "stack", "frames"]} />
 
             <div class="font-semibold theme-mono ml-2 theme-fg">
-                <a class="theme-style6 inline-block" style={{ width: charWidth() * 10 + "px" }}>address</a>
-                <a>{activeTab() == "disasm" ? "instructions" : "contents"}</a>
+                <span class="theme-style6 inline-block" style={{ width: charWidth() * 10 + "px" }}>address</span>
+                <span>{activeTab() === "disasm" ? "instructions" : "contents"}</span>
             </div>
 
-
-            <div ref={parentRef} class="theme-mono text-lg overflow-y-auto overflow-x-auto theme-scrollbar ml-2">
+            <div ref={pr} class="theme-mono text-lg overflow-y-auto overflow-x-auto theme-scrollbar ml-2">
                 <div ref={dummyChar} class="invisible absolute">0</div>
 
-                <Show when={activeTab() == "frames"}>
+                <Show when={activeTab() === "frames"}>
                     <ShadowStack
                         shadowStack={props.shadowStack}
                         memWrittenAddr={props.writeAddr}
@@ -151,136 +307,43 @@ export const MemoryView: Component<{ version: () => any, writeAddr: number, writ
                     />
                 </Show>
 
-                <Show when={activeTab() == "disasm"}>
-                    <div style={{ height: `${rowVirtualizer2.getTotalSize()}px`, width: "100%", position: "relative" }}>
-                        <For each={rowVirtualizer2.getVirtualItems()}>
-                            {(virtRow) => (
-                                <div
-                                    style={{ "white-space": "nowrap", position: "absolute", top: `${virtRow.start}px`, height: `${ROW_HEIGHT}px` }}
-                                    class={"flex flex-row items-center w-full " + (props.version() && (TEXT_BASE + virtRow.index * 4 == props.pc) ? "cm-debugging" : "")}
-                                >
-                                    <div
-                                        class={"theme-style6 shrink-0 w-[10ch] tabular-nums " + ((addrSelect() == virtRow.index) ? "select-text " : "select-none ") + ((TEXT_BASE + virtRow.index * 4 == props.pc) ? "theme-fg" : "theme-fg2")}
-                                        onMouseDown={(e) => { setAddrSelect(virtRow.index); e.stopPropagation(); }}>
-                                        {(TEXT_BASE + virtRow.index * 4).toString(16).padStart(8, "0")}
-                                    </div>
-
-                                    {(() => {
-                                        props.version();
-                                        const basePtr = TEXT_BASE + virtRow.index * 4;
-                                        let inst = props.disassemble ? props.disassemble(basePtr) : "";
-                                        let style = "";
-                                        if (basePtr >= props.highlightAddr && basePtr < (props.highlightAddr + props.highlightLen))
-                                            style = "font-bold";
-                                        return <div class={style}>{inst}</div>;
-                                    })()}
-                                </div>
-                            )}
-                        </For>
-                    </div>
+                <Show when={activeTab() === "disasm"}>
+                    <DisasmView
+                        version={props.version}
+                        pc={props.pc}
+                        highlightAddr={props.highlightAddr}
+                        highlightLen={props.highlightLen}
+                        charWidth={charWidth()}
+                        charHeight={charHeight()}
+                        addrSelect={addrSelect}
+                        setAddrSelect={setAddrSelect}
+                        disassemble={props.disassemble}
+                        parentRef={parentRef()}
+                    />
                 </Show>
 
-                <Show when={activeTab() != "frames" && activeTab() != "disasm"}>
-                    <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
-                        <For each={rowVirtualizer.getVirtualItems()}>
-                            {(virtRow) => (
-                                <div
-                                    style={{ position: "absolute", top: `${virtRow.start}px`, height: `${ROW_HEIGHT}px` }}
-                                    class="flex flex-row items-center w-full"
-                                >
-                                    {/* Address Column */}
-                                    <div
-                                        class={"theme-style6 theme-fg2 shrink-0 w-[10ch] tabular-nums " + ((addrSelect() == virtRow.index) ? "select-text" : "select-none")}
-                                        onMouseDown={(e) => { setAddrSelect(virtRow.index); e.stopPropagation(); }}>
-                                        {(getStartAddr() + virtRow.index * (chunksPerLine() - 1) * 4).toString(16).padStart(8, "0")}
-                                    </div>
-
-                                    {(() => {
-                                        props.version();
-                                        reloadTrigger();
-                                        displayFormat();
-                                        let chunks = chunksPerLine() - 1;
-                                        if (chunks < 1) chunks = 1;
-
-                                        const bytesPerUnit = getUnitBytes();
-                                        let components = [];
-                                        let selectMode = (addrSelect() == -1) ? "select-text" : "select-none";
-
-                                        let writeStartAligned = props.writeAddr & (~(bytesPerUnit - 1));
-                                        let writeEndAligned = (props.writeAddr + props.writeLen + bytesPerUnit - 1) & (~(bytesPerUnit - 1));
-
-                                        let highlightStartAligned = props.highlightAddr & (~(bytesPerUnit - 1));
-                                        let highlightEndAligned = (props.highlightAddr + props.highlightLen + bytesPerUnit - 1) & (~(bytesPerUnit - 1));
-
-                                        for (let i = 0; i < chunks; i++) {
-                                            const basePtr = getStartAddr() + (virtRow.index * chunks + i) * 4;
-                                            const unitsPerChunk = 4 / bytesPerUnit;
-
-                                            for (let j = 0; j < unitsPerChunk; j++) {
-                                                let ptr = basePtr + (j * bytesPerUnit);
-                                                if (ptr - getStartAddr() >= 65536) break;
-                                                let isAnimated = ptr >= writeStartAligned && ptr < writeEndAligned;
-                                                // only handle FP here if it is set (it's 0 by default)
-                                                let isGray = activeTab() == "stack" && (ptr < props.sp || (props.fp > props.sp && ptr > props.fp));
-                                                let isSp = ptr >= props.sp && ptr < props.sp + 4;
-                                                let isFp = ptr >= props.fp && ptr < props.fp + 4;
-                                                let style = selectMode;
-                                                if (isAnimated) style = "animate-fade-highlight";
-                                                else if (isGray) style = "theme-fg2";
-                                                else if (isSp) style = "sp-highlight";
-                                                else if (isFp) style = "fp-highlight";
-                                                if (ptr >= highlightStartAligned && ptr < highlightEndAligned)
-                                                    style += " font-bold";
-
-                                                // Use max width for consistent layout
-                                                const cellWidth = getCellWidthChars(bytesPerUnit);
-
-                                                const str = formatMemoryValue(loadWrapper(props.load, ptr, bytesPerUnit), bytesPerUnit);
-                                                components.push(
-                                                    <span
-                                                        class={style + " cursor-default tabular-nums whitespace-pre"}
-                                                        style={{
-                                                            "margin-right": (i != chunks - 1 || j != unitsPerChunk - 1) ? `${cellWidth + 1 - str.length}ch` : "0",
-                                                            "display": "inline-block"
-                                                        }}
-                                                    >
-                                                        {str}
-                                                    </span>
-                                                );
-                                            }
-                                        }
-                                        return (
-                                            <div style={{ "white-space": "nowrap" }}>
-                                                {components}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            )}
-                        </For>
-                    </div>
+                <Show when={showHex()}>
+                    <HexView
+                        scrollPositions={scrollPositions}
+                        version={props.version}
+                        activeTab={activeTab}
+                        writeAddr={props.writeAddr}
+                        writeLen={props.writeLen}
+                        highlightAddr={props.highlightAddr}
+                        highlightLen={props.highlightLen}
+                        sp={props.sp}
+                        fp={props.fp}
+                        load={props.load}
+                        charHeight={charHeight()}
+                        charWidth={charWidth()}
+                        addrSelect={addrSelect}
+                        setAddrSelect={setAddrSelect}
+                        chunksPerLine={chunksPerLine}
+                        lineCount={lineCount}
+                        parentRef={parentRef()}
+                    />
                 </Show>
             </div>
         </div>
     );
 };
-
-const ShadowStack: Component<{ memWrittenAddr: number, memWrittenLen: number, shadowStack: ShadowStackEntry[] }> = (props) =>
-    <For each={props.shadowStack}>
-        {(elem) => (
-            <div class="flex flex-col pb-4">
-                <div class="font-bold">{elem.name}</div>
-                <For each={elem.elems}>
-                    {(e) => (
-                        <div class="flex flex-row">
-                            <a class="theme-style6 pr-2 w-[10ch] tabular-nums">{e.addr.toString(16)}</a>
-                            <div class={((e.addr >= props.memWrittenAddr &&
-                                e.addr <
-                                props.memWrittenAddr +
-                                props.memWrittenLen) ? "animate-fade-highlight " : "") + "tabular-nums"}>{e.text}</div>
-                        </div>
-                    )}
-                </For>
-            </div >
-        )}
-    </For >; 

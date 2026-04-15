@@ -298,7 +298,11 @@ export class WasmInterface {
           regname = this.getRegisterName(runtimeParam1);
           oldVal = convertNumber(runtimeParam2, false);
           newVal = convertNumber(this.regsArr[runtimeParam1], false);
-          this.textBuffer += `CallSan: ${pcString}\nCallee-saved register ${regname} has different value at the beginning and end of the function.\nPrev: ${oldVal}\nCurr: ${newVal}\nCheck the calling convention!\n`;
+          this.textBuffer += `CallSan: callee-saved register ${regname} was modified but not restored.\n`
+          this.textBuffer += `Value at entry: ${oldVal}, at exit: ${newVal}\n`;
+          this.textBuffer += "In the RISC-V ABI, s0-s11 must be preserved by the callee.\n";
+          this.textBuffer += "The caller expects them to have the same value before and after the function call.\n";
+          this.textBuffer += "Hint: you can use the stack to save and restore them.\n";
           break;
         case 7:
           oldVal = convertNumber(runtimeParam2, false);
@@ -308,14 +312,20 @@ export class WasmInterface {
         case 8:
           oldVal = convertNumber(runtimeParam2, false);
           newVal = convertNumber(this.regsArr[REG_RA], false);
-          this.textBuffer += `CallSan: ${pcString}\nRegister ra has different value at the beginning and end of the function.\nPrev: ${oldVal}\nCurr: ${newVal}\nCheck the calling convention!\n`;
+          this.textBuffer += `CallSan: return address register was modified but not restored.\n`;
+          this.textBuffer += `Value at entry: ${oldVal}, at exit: ${newVal}\n`;
+          this.textBuffer += `Function calls overwrite ra, so in a nested function call, the inner call overwrites the return address of the outer function, preventing return to its caller.\n`;
+          this.textBuffer += `Hint: in non-leaf functions, ra must be saved in the prologue and restored in the epilogue.\n`;
           break;
         case 9:
           this.textBuffer += `CallSan: ${pcString}\nReturn without matching call!\n`;
           break;
         case 10:
           str = convertNumber(runtimeParam1, false);
-          this.textBuffer += `CallSan: ${pcString}\nAttempted to read from stack address 0x${str}, which hasn't been written to in the current function.\n`;
+          this.textBuffer += `CallSan: read from uninitialized stack slot.\n`;
+          this.textBuffer += `Attempted to read from stack address 0x${str}, which has not been written to since the stack pointer was moved.\n`;
+          this.textBuffer += `This results in loading garbage data into the register.\n`;
+          this.textBuffer += `Hint: the prologue should save registers to the stack and the epilogue should restore them, using the same offset.\n`;
           break;
         case 11:
           str = convertNumber(runtimeParam1, false);
@@ -324,6 +334,12 @@ export class WasmInterface {
         case 12:
           str = convertNumber(runtimeParam1, false);
           this.textBuffer += `ERROR: Environment call ${runtimeParam1.toString()} is not supported\n`;
+          break;
+        case 13:
+          regname = this.getRegisterName(runtimeParam1);
+          this.textBuffer += `CallSan: ${regname} is caller-saved: value is not preserved across a call.\n`;
+          this.textBuffer += "In the RISC-V ABI, a0-a7 and t0-t6 may be overwritten by the called function.\n";
+          this.textBuffer += "Hint: S registers are preserved across a call\n";
           break;
         default:
           this.textBuffer += `ERROR${errorType}: ${pcString} ${this.runtimeErrorParams[0].toString(

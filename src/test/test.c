@@ -656,7 +656,7 @@ E:  .word 0b01  \n\
     check_pc_at_label("E");
 }
 
-void test_callsan_cantread(void) {
+void test_callsan_clobbered(void) {
     build_and_run(
         "\
 fn:                \n\
@@ -664,6 +664,35 @@ fn:                \n\
 .globl _start      \n\
 _start:            \n\
     li a3, 2       \n\
+    jal fn         \n\
+E:  addi a3, a3, 1 \n\
+");
+    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CALL_CLOBBERED);
+    TEST_ASSERT_EQUAL(g_runtime_error_params[0], REG_A3);
+    check_pc_at_label("E");
+}
+
+void test_callsan_cantread_1(void) {
+    build_and_run(
+        "\
+fn:                \n\
+    ret            \n\
+.globl _start      \n\
+_start:            \n\
+E:  addi a3, a3, 1 \n\
+");
+    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CANTREAD);
+    TEST_ASSERT_EQUAL(g_runtime_error_params[0], REG_A3);
+    check_pc_at_label("E");
+}
+
+void test_callsan_cantread_2(void) {
+    build_and_run(
+        "\
+fn:                \n\
+    ret            \n\
+.globl _start      \n\
+_start:            \n\
     jal fn         \n\
 E:  addi a3, a3, 1 \n\
 ");
@@ -825,7 +854,7 @@ _start:             \n\
     jal fn          \n\
 E:  addi t0, t0, 1  \n\
 ");
-    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CANTREAD);
+    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CALL_CLOBBERED);
     TEST_ASSERT_EQUAL(g_runtime_error_params[0], REG_T0);
     check_pc_at_label("E");
 }
@@ -861,7 +890,7 @@ _start:             \n\
     jal fn          \n\
 E:  mv t0, a2       \n\
 ");
-    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CANTREAD);
+    TEST_ASSERT_EQUAL(g_runtime_error_type, ERROR_CALLSAN_CALL_CLOBBERED);
     TEST_ASSERT_EQUAL(g_runtime_error_params[0], REG_A2);
     check_pc_at_label("E");
 }
