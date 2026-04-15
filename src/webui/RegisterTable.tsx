@@ -51,52 +51,53 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
     <div class="overflow-hidden flex-grow h-full self-start flex-shrink flex flex-col">
       <div class="flex-none flex items-center justify-end theme-gutter border-b theme-border min-h-9">
         <div class="flex flex-wrap items-center gap-1">
-          <select
-              class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
-              title="Memory unit size"
-              value={unitSize()}
-              onChange={(e) => setUnitSize(e.currentTarget.value as UnitSize)}
-            >
-              <option value="byte">byte</option>
-              <option value="half">half</option>
-              <option value="word">word</option>
+          <div class="pb-0.5 relative inline-block">
+            <select
+                class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
+                title="Memory unit size"
+                value={unitSize()}
+                onChange={(e) => setUnitSize(e.currentTarget.value as UnitSize)}
+              >
+                <option value="byte">byte</option>
+                <option value="half">half</option>
+                <option value="word">word</option>
             </select>
             <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
               xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
           </div>
-          <div class="pb-0.5 relative inline-block">
-            <select
-              class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
-              title="Number format"
-              value={displayFormat()}
-              onChange={(e) => setDisplayFormat(e.currentTarget.value as DisplayFormat)}
-            >
-              <option value="hex">hex</option>
-              <option value="unsigned">unsigned</option>
-              <option value="signed">signed</option>
-            </select>
-            <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
-              xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
-          
+        </div>
+        <div class="pb-0.5 relative inline-block">
+          <select
+            class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
+            title="Number format"
+            value={displayFormat()}
+            onChange={(e) => setDisplayFormat(e.currentTarget.value as DisplayFormat)}
+          >
+            <option value="hex">hex</option>
+            <option value="unsigned">unsigned</option>
+            <option value="signed">signed</option>
+          </select>
+          <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
+            xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
         </div>
       </div>
 
       {/* Register grid */}
       <div class="overflow-auto flex-grow text-md theme-mono theme-scrollbar-slim theme-border">
-        <div class="ml-[-1px] grid grid-flow-col grid-rows-[repeat(16,auto)]">
-          <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] ">
+        <div class="ml-[-1px] columns-[21ch]">
+          <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] break-inside-avoid">
             <div class="self-center pl-[1ch] font-bold">pc</div>
             <div class="self-center pr-[1ch]">{formatRegister(props.pc)}</div>
           </div>
-        {/* using Index here would optimize it, but it gets messy with animations
+          {/* using Index here would optimize it, but it gets messy with animations
             naively keeping it as is and making regWritten a signal would still cause everything to be recomputed
-        */}
+          */}
           {registersLayout.map((regDef) => {
-            const val = props.regs[regDef.idx - 1]; 
+            const val = props.regs[regDef.idx]; 
             const hwName = `x${regDef.idx}`;
 
             return (
-              <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] gap-3">
+              <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] gap-3 break-inside-avoid">
                 <div class={`self-center pl-[1ch] font-bold ${regDef.color}`}>
                   {regDef.name}/{hwName}
                 </div>
@@ -109,11 +110,10 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
               </div>
             );
           })}
-            
+
           {/* dummy left border of the last element */}
-          <div class="theme-border border-l"></div>
-        </div>
-        
+          <div class="theme-border border-l break-inside-avoid"></div>
+        </div>        
       </div>
     </div>
   );
