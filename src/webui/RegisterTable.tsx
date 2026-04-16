@@ -68,20 +68,20 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
             <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
               xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
           </div>
-        </div>
-        <div class="pb-0.5 relative inline-block">
-          <select
-            class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
-            title="Number format"
-            value={displayFormat()}
-            onChange={(e) => setDisplayFormat(e.currentTarget.value as DisplayFormat)}
-          >
-            <option value="hex">hex</option>
-            <option value="unsigned">unsigned</option>
-            <option value="signed">signed</option>
-          </select>
-          <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
-            xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
+          <div class="pb-0.5 relative inline-block">
+            <select
+              class="appearance-none font-semibold theme-fg theme-gutter px-2 pr-6 rounded theme-border focus:outline-none cursor-pointer"
+              title="Number format"
+              value={displayFormat()}
+              onChange={(e) => setDisplayFormat(e.currentTarget.value as DisplayFormat)}
+            >
+              <option value="hex">hex</option>
+              <option value="unsigned">unsigned</option>
+              <option value="signed">signed</option>
+            </select>
+            <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 theme-fg"
+              xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" /></svg>
+          </div>
         </div>
       </div>
 
