@@ -7,6 +7,8 @@ export const [unitSize, setUnitSize] = createSignal<UnitSize>(4);
 export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: number }> = (props) => {
   // idx is the hardware register number
   const registersLayout = [
+    { name: "ra",  idx: 1,  color: "" }, 
+
     { name: "t0",  idx: 5,  color: "theme-style2" }, 
     { name: "t1",  idx: 6,  color: "theme-style2" }, 
     { name: "t2",  idx: 7,  color: "theme-style2" },
@@ -41,8 +43,8 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
     
     { name: "gp",  idx: 3,  color: "" },
     { name: "tp",  idx: 4,  color: "" },
-    { name: "ra",  idx: 1,  color: "" }, 
   ];
+
   // setting ascii will force unit size to byte
   // the alternative would have been to only show ascii while unit size is byte
   // but that is less discoverable
@@ -60,9 +62,12 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
       setDisplayFormat("hex");
     }
   };
+
   // all units being ch makes so that the precise sum is 1ch (left pad) + 7ch (x27/a10) + 10ch (0xdeadbeef) + 1ch (right pad)
   // round to 20ch so it has some padding between regname and hex
   // now i have the precise size in a font-independent format, as long as it's monospace
+  // webkit workaround for lack of select styling (particularly apparent in dark mode)
+  // using google material icons keyboard_arrow_down as it matches Chromium's native
   return (
     <div class="overflow-hidden flex-grow h-full self-start flex-shrink flex flex-col">
       <div class="flex-none flex items-center justify-end theme-gutter border-b theme-border min-h-9">
@@ -101,7 +106,7 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
 
       {/* Register grid */}
       <div class="overflow-auto flex-grow text-md theme-mono theme-scrollbar-slim theme-border">
-        <div class="ml-[-1px] columns-[21ch] gap-0">
+        <div class="ml-[-1px] columns-[20ch] gap-0">
           <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] break-inside-avoid">
             <div class="self-center pl-[1ch] font-bold">pc</div>
             <div class="self-center pr-[1ch]">{formatRegister(props.pc, "hex")}</div>
@@ -114,14 +119,12 @@ export const RegisterTable: Component<{ pc: number, regs: number[], regWritten: 
             const hwName = `x${regDef.idx}`;
 
             return (
-              <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] gap-3 break-inside-avoid">
+              <div class="justify-between flex flex-row box-content theme-border border-l py-[0.5ch] break-inside-avoid">
                 <div class={`self-center pl-[1ch] font-bold ${regDef.color}`}>
                   {regDef.name}/{hwName}
                 </div>
                 <div class={"self-center mr-[1ch] " + (regDef.idx == props.regWritten ? "animate-fade-highlight" : "")}>
-                  {(() => {
-                    return formatRegister(val, displayFormat());
-                  })()}
+                  {formatRegister(val, displayFormat())}
                 </div>
               </div>
             );
